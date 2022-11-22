@@ -137,7 +137,7 @@ contract PrivateStakingPool {
 	uint256 public totalStakers; 
     uint256 public totalRewardsPerStaker;
     uint256 public stakingAmount;
-    uint256 private veryBigNumber = 10 ** 36;
+    uint256 private constant veryBigNumber = 10 ** 36;
     uint256 public timeOfLaunch;
     mapping (address => uint256) public claimedRewards;
     mapping (address => uint256) public excludedRewards;
@@ -239,7 +239,7 @@ contract PublicStakingPool {
     uint256 public constant MAX_POOL = 1_000_000_000 * 10**18;
 	uint256 public totalTokensInPool;
     uint256 public totalRewardsPerToken;
-    uint256 private veryBigNumber = 10 ** 36;
+    uint256 private constant veryBigNumber = 10 ** 36;
     mapping (address => uint256) public claimedRewards;
 	mapping (address => uint256) public deposits;
     mapping (address => uint256) public excluded;
@@ -311,7 +311,7 @@ contract AstroX is IBEP20 {
     string constant _name = "AstroX";
     string constant _symbol = "ATX";
     uint8 constant _decimals = 18;
-    uint256 _totalSupply = 400_000_000_000 * (10**_decimals);
+    uint256 constant _totalSupply = 400_000_000_000 * (10**_decimals);
 
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;

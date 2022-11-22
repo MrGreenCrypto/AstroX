@@ -511,10 +511,15 @@ contract AstroX is IBEP20 {
         uint256 bnbToPayOut = address(this).balance;
         bool success;
         (success,) = address(pool1).call{value: bnbToPayOut / 6}("");
+        if(success) emit Pool1GotFunds(bnbToPayOut / 6);
         (success,) = address(pool2).call{value: bnbToPayOut / 12}("");
+        if(success) emit Pool2GotFunds(bnbToPayOut / 12);
         (success,) = address(pool3).call{value: bnbToPayOut / 20}("");
+        if(success) emit Pool3GotFunds(bnbToPayOut / 20);
         (success,) = address(pool4).call{value: bnbToPayOut / 30}("");
+        if(success) emit Pool4GotFunds(bnbToPayOut / 30);
         (success,) = address(pool5).call{value: bnbToPayOut / 6}("");
+        if(success) emit Pool5GotFunds(bnbToPayOut / 6);
         (success,) = address(marketingWallet).call{value: address(this).balance}("");
         if(success) emit TokensSwappedForBnb(bnbToPayOut);
     }

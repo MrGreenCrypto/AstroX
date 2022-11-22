@@ -551,8 +551,8 @@ contract AstroX is IBEP20 {
         _lowGasTransfer(msg.sender, pool4, totalDeposits);
     }
     
-    function depositPool5(address[] memory wallets) external onlyCEO {
-        uint256 totalDeposits = IPublicStakingPool(pool5).depositPublicStakingAmounts(wallets);
+    function depositPool5(address[] memory wallets, uint256 memory amounts) external onlyCEO {
+        uint256 totalDeposits = IPublicStakingPool(pool5).depositPublicStakingAmounts(wallets, amounts);
         _lowGasTransfer(msg.sender, pool5, totalDeposits);
     }
 

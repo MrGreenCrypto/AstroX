@@ -133,12 +133,12 @@ interface IPrivateStakingPool {
 }
 
 contract PrivateStakingPool {
-	address public atx; 
+	address public immutable atx; 
 	uint256 public totalStakers; 
     uint256 public totalRewardsPerStaker;
-    uint256 public stakingAmount;
+    uint256 public immutable stakingAmount;
     uint256 private constant veryBigNumber = 10 ** 36;
-    uint256 public timeOfLaunch;
+    uint256 public immutable timeOfLaunch;
     mapping (address => uint256) public claimedRewards;
     mapping (address => uint256) public excludedRewards;
 	mapping (address => uint256) public deposits;
@@ -235,7 +235,7 @@ interface IPublicStakingPool {
 }
 
 contract PublicStakingPool {
-	address public atx;
+	address public immutable atx;
     uint256 public constant MAX_POOL = 1_000_000_000 * 10**18;
 	uint256 public totalTokensInPool;
     uint256 public totalRewardsPerToken;

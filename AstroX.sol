@@ -321,11 +321,11 @@ contract AstroX is IBEP20 {
     address public constant CEO = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;
     address private constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
 
-    address immutable pool1;
-    address immutable pool2;
-    address immutable pool3;
-    address immutable pool4;
-    address immutable pool5;
+    address public immutable pool1;
+    address public immutable pool2;
+    address public immutable pool3;
+    address public immutable pool4;
+    address public immutable pool5;
     
     address public marketingWallet = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;
     address public tokenWallet = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;

@@ -424,6 +424,7 @@ contract AstroX is IBEP20 {
     }
 
     function setAddressTaxStatus(address wallet, bool status) external onlyCEO {
+        require(wallet != address(this),"Can't change tax status of this contract");
         limitless[wallet] = status;
         if(status) emit ExcludedAddressFromTax(wallet);
         else emit UnExcludedAddressFromTax(wallet);

@@ -145,6 +145,7 @@ contract PrivateStakingPool {
     mapping (address => bool) public excluded;
     mapping (address => bool) public whitelisted;
     mapping (address => bool) public stakedLater;
+    mapping (address => bool) public walletAdded;
 
 	event Unstaked(address indexed redeemer, uint256 quantity);
 
@@ -166,11 +167,15 @@ contract PrivateStakingPool {
     function depositPrivateStakingAmounts(address[] memory wallets) external onlyAtx returns(uint256) {
         if(totalStakers != 0) return 0;
         uint256 totalWallets = wallets.length;
+        uint256 totalTokensNeeded = 0;
         totalStakers = totalWallets;
         for(uint i = 0; i<totalWallets;i++){
+            if(walletAdded[wallets[i]]) continue;
             deposits[wallets[i]] = stakingAmount;
+            totalTokensNeeded += stakingAmount;
+            walletAdded[wallets[i]] = true;
         }
-        return totalWallets * stakingAmount;
+        return totalTokensNeeded;
     }
 
     function whitelistWhalesForStaking(address[] memory wallets) external onlyAtx {
@@ -243,6 +248,7 @@ contract PublicStakingPool {
     mapping (address => uint256) public claimedRewards;
 	mapping (address => uint256) public deposits;
     mapping (address => uint256) public excluded;
+
 	event Unstaked(address indexed staker, uint256 quantity, uint256 stakeableTokens);
     event Staked(address indexed staker, uint256 quantity, uint256 stakeableTokens);
 
@@ -260,9 +266,10 @@ contract PublicStakingPool {
     }
 
     function depositPublicStakingAmounts(address[] memory wallets, uint256[] memory amounts) external onlyAtx returns(uint256) {
+        require(wallets.length == amounts.length, "Length of wallets and amounts needs to be equal");
         uint256 totalWallets = wallets.length;
         uint256 totalDeposits;
-        
+
         for(uint i = 0; i<totalWallets;i++){
             deposits[wallets[i]] = amounts[i];
             totalDeposits += amounts[i];

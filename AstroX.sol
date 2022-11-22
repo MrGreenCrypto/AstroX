@@ -318,7 +318,7 @@ contract AstroX is IBEP20 {
     string constant _name = "AstroX";
     string constant _symbol = "ATX";
     uint8 constant _decimals = 18;
-    uint256 constant _totalSupply = 400_000_000_000 * (10**_decimals);
+    uint256 constant _totalSupply = 4_000_000_000 * (10**_decimals);
 
     mapping(address => uint256) private _balances;
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -333,6 +333,9 @@ contract AstroX is IBEP20 {
     address public immutable pool3;
     address public immutable pool4;
     address public immutable pool5;
+
+    uint256 public minTokensToSwap = _totalSupply / 10_000;
+    uint256 public maxTokensToSwap = _totalSupply / 10_000;
     
     address public marketingWallet = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;
     address public tokenWallet = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;
@@ -351,6 +354,7 @@ contract AstroX is IBEP20 {
     event UnExcludedAddressFromTax(address wallet);
     event AirdropsSent(address[] airdropWallets, uint256[] amount);
     event TokensSwappedForBnb(uint256 bnbReceived);
+    event TokensToSwapSet(uint256 minTokensToSwap, uint256 maxTokensToSwap);
 
     constructor(uint256 launchTime) {
         pcsPair = IDEXFactory(IDEXRouter(ROUTER).factory()).createPair(WBNB, address(this));
@@ -446,6 +450,12 @@ contract AstroX is IBEP20 {
         pairs.pop();
     }
 
+    function setTokensToSwap(uint256 amount) external onlyCEO {
+        minTokensToSwap = minAmount * 10**18;
+        maxTokensToSwap = maxAmount * 10**18;
+        emit TokensToSwapSet(minTokensToSwap, maxTokensToSwap);
+    }
+
     function airdropToWallets(address[] memory airdropWallets, uint256[] memory amount) external onlyCEO {
         require(airdropWallets.length == amount.length,"Arrays must be the same length");
         require(airdropWallets.length <= 200,"Wallets list length must be <= 200");
@@ -501,7 +511,8 @@ contract AstroX is IBEP20 {
 
     function swapAstroX() internal {
         uint256 contractBalance = _balances[address(this)];
-        if(contractBalance == 0) return;
+        if(contractBalance < minTokensToSwap) return;
+        if(contractBalance > maxTokensToSwap) contractBalance = maxTokensToSwap;
 
         address[] memory path = new address[](2);
         path[0] = address(this);

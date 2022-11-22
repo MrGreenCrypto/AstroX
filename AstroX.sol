@@ -149,7 +149,7 @@ contract PrivateStakingPool {
 	event Unstaked(address indexed redeemer, uint256 quantity);
 
     modifier onlyAtx(){
-        require (msg.sender == atx, "Only the CEO can do that");
+        require (msg.sender == atx, "Only the ATX contract can do that");
         _;
     }
 
@@ -247,7 +247,7 @@ contract PublicStakingPool {
     event Staked(address indexed staker, uint256 quantity, uint256 stakeableTokens);
 
     modifier onlyAtx(){
-        require (msg.sender == atx, "Only the CEO can do that");
+        require (msg.sender == atx, "Only the ATX contract can do that");
         _;
     }
 

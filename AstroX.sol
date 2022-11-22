@@ -44,86 +44,57 @@ interface IDEXRouter {
 
 
 contract StaffSalary {
-    address public constant CEO = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;
+    address public ceo;
     uint256 public totalStaff; 
     uint256 public totalSalaryPerTeamMember;
     uint256 private veryBigNumber = 10 ** 36;
     mapping (address => uint256) public claimedSalary;
     mapping (address => uint256) public excludedSalary;
+    mapping (address => bool) public isTeam;
 
     modifier onlyCEO(){
         require (msg.sender == CEO, "Only the CEO can do that");
         _;
     }
 
-	constructor() {}
+	constructor(address _ceo) {
+        ceo = _ceo;
+    }
 
     receive() external payable {
         totalSalaryPerTeamMember += msg.value * veryBigNumber / totalStaff;
     }
 
-    function addStaffWallets(address[] memory wallets) external onlyCEO returns(uint256) {
+    function addStaffWallets(address[] memory wallets) external onlyCEO {
         uint256 totalWallets = wallets.length;
         
         for(uint i = 0; i<totalWallets;i++){
-            deposits[wallets[i]] = stakingAmount;
+            if(isTeam[wallets[i]]) continue;
+            totalStaff++;
+            isTeam[wallets[i]] = true;
+            excludedSalary[wallets[i]] = totalSalaryPerTeamMember;
         }
     }
 
-    function whitelistWhalesForStaking(address[] memory wallets) external onlyAtx {
-        uint256 totalWallets = wallets.length;
-        totalStakers = totalWallets;
-        for(uint i = 0; i<totalWallets;i++){
-            whitelisted[wallets[i]] = true;
-        }
+    function removeStaffWallet(address wallet) external onlyCEO {
+        if(!isTeam[wallet]) return;
+        _claim(wallet);
+        totalStaff--;
+        isTeam[wallet] = false;
     }
 
-    function checkLockedTokens() internal view returns(uint256) {
-        uint256 weeksSinceLaunch = (block.timestamp - timeOfLaunch) / 7 days;
-        uint256 lockedAmount = weeksSinceLaunch > 9 ? 0 : stakingAmount * (9 - weeksSinceLaunch) / 10;
-        return lockedAmount;
-    }
-
-    function stake() external {
-        if(totalStakers >= 30 || deposits[msg.sender] > 0 || !whitelisted[msg.sender]) return;
-        if(excluded[msg.sender]) excluded[msg.sender] = false;
-        IBEP20(atx).transferFrom(msg.sender, address(this), stakingAmount);
-        totalStakers++;
-        deposits[msg.sender] = stakingAmount;
-        excludedSalary[msg.sender] = totalSalaryPerTeamMember;
-        stakedLater[msg.sender] = true;
-    }
-
-	function unstake() external {
-		uint256 amount = deposits[msg.sender];
-        uint256 lockedTokens = checkLockedTokens();
-        if(stakedLater[msg.sender]) lockedTokens = 0;
-		amount -= lockedTokens;
-        if(amount == 0) return;
-        _claim(msg.sender);
-		IBEP20(atx).transfer(msg.sender, amount);
-		
-        if(!excluded[msg.sender]) {
-            totalStakers--;
-            excluded[msg.sender] = true;
-        }
-
-		deposits[msg.sender] -= amount;
-		emit Unstaked(msg.sender, amount);
-	}
-
-    function claimRewards() external {
+    function claimSalary() external {
         _claim(msg.sender);
     }
 
-    function _claim(address staker) internal {
-        uint256 claimedAlready = excludedSalary[staker];
-        if(excluded[staker]) return;
+    function _claim(address teamMember) internal {
+        if(!isTeam[teamMember]) return;
+        uint256 claimedAlready = excludedSalary[teamMember];
         if(claimedAlready >= totalSalaryPerTeamMember) return;
         uint256 claimableNow = (totalSalaryPerTeamMember - claimedAlready) / veryBigNumber;
-        claimedSalary[staker] += claimableNow;
-        excludedSalary[staker] = totalSalaryPerTeamMember;
-        payable(staker).transfer(claimableNow);
+        claimedSalary[teamMember] += claimableNow;
+        excludedSalary[teamMember] = totalSalaryPerTeamMember;
+        payable(teamMember).transfer(claimableNow);
     }
 }
 
@@ -333,6 +304,7 @@ contract AstroX is IBEP20 {
     address public immutable pool3;
     address public immutable pool4;
     address public immutable pool5;
+    address public immutable staffSalary;
 
     uint256 public minTokensToSwap = _totalSupply / 10_000;
     uint256 public maxTokensToSwap = _totalSupply / 10_000;
@@ -355,6 +327,8 @@ contract AstroX is IBEP20 {
     event AirdropsSent(address[] airdropWallets, uint256[] amount);
     event TokensSwappedForBnb(uint256 bnbReceived);
     event TokensToSwapSet(uint256 minTokensToSwap, uint256 maxTokensToSwap);
+    event PairRemoved(address pairRemoved);
+    event PairAdded(address pairAdded);
 
     constructor(uint256 launchTime) {
         pcsPair = IDEXFactory(IDEXRouter(ROUTER).factory()).createPair(WBNB, address(this));
@@ -369,6 +343,7 @@ contract AstroX is IBEP20 {
         pool3 = address(new PrivateStakingPool(5555555 * 10**_decimals, launchTime));
         pool4 = address(new PrivateStakingPool(27777775 * 10**(_decimals-1), launchTime));
         pool5 = address(new PublicStakingPool());
+        staffSalary = address(new StaffSalary(CEO));
 
         _balances[CEO] = _totalSupply;
         emit Transfer(address(0), CEO, _totalSupply);
@@ -443,10 +418,12 @@ contract AstroX is IBEP20 {
 
     function addPair(address pairToAdd) external onlyCEO {
         pairs.push(pairToAdd);
+        emit PairAdded(pairToAdd);
     }
 
     function removeLastPair() external onlyCEO {
         if(pairs.length == 1) return;
+        emit PairRemoved(pairs[pairs.length-1]);
         pairs.pop();
     }
 
@@ -475,20 +452,20 @@ contract AstroX is IBEP20 {
     }
 
     function takeTax(address sender, address recipient, uint256 amount) internal returns (uint256) {
-        uint256 taxAmount;
+        uint256 taxAmount = 0;
+
         if(isPair(sender)) {
             taxAmount = amount * 7 / 100;
             _lowGasTransfer(sender, pcsPair, taxAmount / 7);
             _lowGasTransfer(sender, address(this), taxAmount * 6 / 7);
-            return amount - taxAmount;
         }
 
         if(isPair(recipient)) {
              taxAmount = amount * 7 / 100;
             _lowGasTransfer(sender, pcsPair, taxAmount / 7);
             _lowGasTransfer(sender, address(this), taxAmount * 6 / 7);
-            if(balanceOf(address(this)) > 0) swapAstroX();
-            return amount - taxAmount;
+            if(balanceOf(address(this)) > minTokensToSwap) swapAstroX();
+            else IDEXPair(pcsPair).sync();
         }
 
         return amount - taxAmount;
@@ -528,17 +505,19 @@ contract AstroX is IBEP20 {
 
         uint256 bnbToPayOut = address(this).balance;
         bool success;
-        (success,) = address(pool1).call{value: bnbToPayOut / 6}("");
+        (success,) = address(pool1).call{value: bnbToPayOut / 6}(""); // 1% goes to pool1
         if(success) emit Pool1GotFunds(bnbToPayOut / 6);
-        (success,) = address(pool2).call{value: bnbToPayOut / 12}("");
+        (success,) = address(pool2).call{value: bnbToPayOut / 12}(""); // 0.5% goes to pool2
         if(success) emit Pool2GotFunds(bnbToPayOut / 12);
-        (success,) = address(pool3).call{value: bnbToPayOut / 20}("");
+        (success,) = address(pool3).call{value: bnbToPayOut / 20}(""); // 0.3% goes to pool3
         if(success) emit Pool3GotFunds(bnbToPayOut / 20);
-        (success,) = address(pool4).call{value: bnbToPayOut / 30}("");
+        (success,) = address(pool4).call{value: bnbToPayOut / 30}(""); // 0.2% goes to pool4
         if(success) emit Pool4GotFunds(bnbToPayOut / 30);
-        (success,) = address(pool5).call{value: bnbToPayOut / 6}("");
+        (success,) = address(pool5).call{value: bnbToPayOut / 6}(""); // 1% goes to pool5
+        if(success) emit Pool5GotFunds(bnbToPayOut / 6); 
+        (success,) = address(staffSalary).call{value: bnbToPayOut / 6}(""); // 1% goes to staff
         if(success) emit Pool5GotFunds(bnbToPayOut / 6);
-        (success,) = address(marketingWallet).call{value: address(this).balance}("");
+        (success,) = address(marketingWallet).call{value: address(this).balance}(""); // the rest (2%) goes to marketing
         if(success) emit TokensSwappedForBnb(bnbToPayOut);
     }
 

@@ -121,9 +121,9 @@ contract StaffSalary {
         if(excluded[staker]) return;
         if(claimedAlready >= totalSalaryPerTeamMember) return;
         uint256 claimableNow = (totalSalaryPerTeamMember - claimedAlready) / veryBigNumber;
-        payable(staker).transfer(claimableNow);
         claimedSalary[staker] += claimableNow;
         excludedSalary[staker] = totalSalaryPerTeamMember;
+        payable(staker).transfer(claimableNow);
     }
 }
 
@@ -229,9 +229,9 @@ contract PrivateStakingPool {
         if(excluded[staker]) return;
         if(claimedAlready >= totalRewardsPerStaker) return;
         uint256 claimableNow = (totalRewardsPerStaker - claimedAlready) / veryBigNumber;
-        payable(staker).transfer(claimableNow);
         claimedRewards[staker] += claimableNow;
         excludedRewards[staker] = totalRewardsPerStaker;
+        payable(staker).transfer(claimableNow);
     }
 }
 
@@ -308,9 +308,9 @@ contract PublicStakingPool {
         uint256 claimedAlready = excluded[staker];
         if(claimedAlready >= totalRewardsPerToken * deposits[staker]) return;
         uint256 claimableNow = deposits[staker] * (totalRewardsPerToken - claimedAlready) / veryBigNumber;
-        payable(staker).transfer(claimableNow);
         claimedRewards[staker] += claimableNow;
         excluded[staker] = totalRewardsPerToken;
+        payable(staker).transfer(claimableNow);
     }
 }
 

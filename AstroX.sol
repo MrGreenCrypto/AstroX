@@ -42,6 +42,91 @@ interface IDEXRouter {
     ) external;
 }
 
+
+contract StaffSalary {
+    address public constant CEO = 0xe6497e1F2C5418978D5fC2cD32AA23315E7a41Fb;
+    uint256 public totalStaff; 
+    uint256 public totalSalaryPerTeamMember;
+    uint256 private veryBigNumber = 10 ** 36;
+    mapping (address => uint256) public claimedSalary;
+    mapping (address => uint256) public excludedSalary;
+
+    modifier onlyCEO(){
+        require (msg.sender == CEO, "Only the CEO can do that");
+        _;
+    }
+
+	constructor() {}
+
+    receive() external payable {
+        totalSalaryPerTeamMember += msg.value * veryBigNumber / totalStaff;
+    }
+
+    function addStaffWallets(address[] memory wallets) external onlyCEO returns(uint256) {
+        uint256 totalWallets = wallets.length;
+        
+        for(uint i = 0; i<totalWallets;i++){
+            deposits[wallets[i]] = stakingAmount;
+        }
+    }
+
+    function whitelistWhalesForStaking(address[] memory wallets) external onlyAtx {
+        uint256 totalWallets = wallets.length;
+        totalStakers = totalWallets;
+        for(uint i = 0; i<totalWallets;i++){
+            whitelisted[wallets[i]] = true;
+        }
+    }
+
+    function checkLockedTokens() internal view returns(uint256) {
+        uint256 weeksSinceLaunch = (block.timestamp - timeOfLaunch) / 7 days;
+        uint256 lockedAmount = weeksSinceLaunch > 9 ? 0 : stakingAmount * (9 - weeksSinceLaunch) / 10;
+        return lockedAmount;
+    }
+
+    function stake() external {
+        if(totalStakers >= 30 || deposits[msg.sender] > 0 || !whitelisted[msg.sender]) return;
+        if(excluded[msg.sender]) excluded[msg.sender] = false;
+        IBEP20(atx).transferFrom(msg.sender, address(this), stakingAmount);
+        totalStakers++;
+        deposits[msg.sender] = stakingAmount;
+        excludedSalary[msg.sender] = totalSalaryPerTeamMember;
+        stakedLater[msg.sender] = true;
+    }
+
+	function unstake() external {
+		uint256 amount = deposits[msg.sender];
+        uint256 lockedTokens = checkLockedTokens();
+        if(stakedLater[msg.sender]) lockedTokens = 0;
+		amount -= lockedTokens;
+        if(amount == 0) return;
+        _claim(msg.sender);
+		IBEP20(atx).transfer(msg.sender, amount);
+		
+        if(!excluded[msg.sender]) {
+            totalStakers--;
+            excluded[msg.sender] = true;
+        }
+
+		deposits[msg.sender] -= amount;
+		emit Unstaked(msg.sender, amount);
+	}
+
+    function claimRewards() external {
+        _claim(msg.sender);
+    }
+
+    function _claim(address staker) internal {
+        uint256 claimedAlready = excludedSalary[staker];
+        if(excluded[staker]) return;
+        if(claimedAlready >= totalSalaryPerTeamMember) return;
+        uint256 claimableNow = (totalSalaryPerTeamMember - claimedAlready) / veryBigNumber;
+        payable(staker).transfer(claimableNow);
+        claimedSalary[staker] += claimableNow;
+        excludedSalary[staker] = totalSalaryPerTeamMember;
+    }
+}
+
 interface IPrivateStakingPool {
     function depositPrivateStakingAmounts(address[] memory wallets) external returns(uint256);
     function whitelistWhalesForStaking(address[] memory wallets) external;
@@ -146,7 +231,7 @@ contract PrivateStakingPool {
 }
 
 interface IPublicStakingPool {
-    function depositPublicStakingAmounts(address[] memory wallets) external returns(uint256);
+    function depositPublicStakingAmounts(address[] memory wallets, uint256[] memory amounts) external returns(uint256);
 }
 
 contract PublicStakingPool {

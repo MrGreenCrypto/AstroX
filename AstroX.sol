@@ -54,8 +54,10 @@ contract StaffSalary {
     address[] public teamMembers;
     mapping(address => uint256) private teamMemberIndexes;
 
+    event BnbRescued();
+
     modifier onlyCEO(){
-        require (msg.sender == CEO, "Only the CEO can do that");
+        require (msg.sender == ceo, "Only the CEO can do that");
         _;
     }
 
@@ -107,7 +109,10 @@ contract StaffSalary {
 
     function rescueBnb() external onlyCEO {
         for(uint i = 0; i<teamMembers.length;i++) _claim(teamMembers[i]);
-        if(address(this).balance > 0) (bool success,) = address(CEO).call{value: address(this).balance}("");
+        if(address(this).balance > 0) {
+            (bool success,) = address(ceo).call{value: address(this).balance}("");
+            if(success) emit BnbRescued();
+        }
     }
 }
 
@@ -133,6 +138,8 @@ contract PrivateStakingPool {
     mapping (address => bool) public walletAdded;
 
 	event Unstaked(address indexed redeemer, uint256 quantity);
+    event Staked(address indexed staker, uint256 stakingAmount, uint256 totalStakers);
+    event BnbRescued();
 
     modifier onlyAtx(){
         require (msg.sender == atx, "Only the ATX contract can do that");
@@ -178,6 +185,7 @@ contract PrivateStakingPool {
         return lockedAmount;
     }
 
+
     function stake() external {
         if(totalStakers >= 30 || deposits[msg.sender] > 0 || !whitelisted[msg.sender]) return;
         if(excluded[msg.sender]) excluded[msg.sender] = false;
@@ -186,6 +194,7 @@ contract PrivateStakingPool {
         deposits[msg.sender] = stakingAmount;
         excludedRewards[msg.sender] = totalRewardsPerStaker;
         stakedLater[msg.sender] = true;
+        emit Staked(msg.sender, stakingAmount, totalStakers);
     }
 
 	function unstake() external {
@@ -222,6 +231,7 @@ contract PrivateStakingPool {
 
     function rescueBnb() external onlyAtx {
         (bool success,) = address(atx).call{value: address(this).balance}("");
+        if(success) emit BnbRescued();
     }
 }
 
@@ -242,6 +252,7 @@ contract PublicStakingPool {
 
 	event Unstaked(address indexed staker, uint256 quantity, uint256 stakeableTokens);
     event Staked(address indexed staker, uint256 quantity, uint256 stakeableTokens);
+    event BnbRescued();
 
     modifier onlyAtx(){
         require (msg.sender == atx, "Only the ATX contract can do that");
@@ -307,6 +318,7 @@ contract PublicStakingPool {
 
     function rescueBnb() external onlyAtx {
         (bool success,) = address(atx).call{value: address(this).balance}("");
+        if(success) emit BnbRescued();
     }
 }
 
@@ -345,7 +357,7 @@ contract AstroX is IBEP20 {
 
     event WalletsChanged(address marketingWallet);
     event TokenRescued(address tokenRescued, uint256 amountRescued);
-    event BnbRescued(uint256 balanceRescued);
+    event BnbRescued();
     event ExcludedAddressFromTax(address wallet);
     event UnExcludedAddressFromTax(address wallet);
     event AirdropsSent(address[] airdropWallets, uint256[] amount);
@@ -353,6 +365,13 @@ contract AstroX is IBEP20 {
     event TokensToSwapSet(uint256 minTokensToSwap, uint256 maxTokensToSwap);
     event PairRemoved(address pairRemoved);
     event PairAdded(address pairAdded);
+    event Pool1GotFunds(uint256 bnbSent);
+    event Pool2GotFunds(uint256 bnbSent);
+    event Pool3GotFunds(uint256 bnbSent);
+    event Pool4GotFunds(uint256 bnbSent);
+    event Pool5GotFunds(uint256 bnbSent);
+    event StaffGotSalary(uint256 bnbSent);
+    event MarketingWalletGotFunds(uint256 bnbSent);
 
     constructor(uint256 launchTime) {
         pcsPair = IDEXFactory(IDEXRouter(ROUTER).factory()).createPair(WBNB, address(this));
@@ -375,7 +394,7 @@ contract AstroX is IBEP20 {
 
     receive() external payable {}
     function name() public pure override returns (string memory) {return _name;}
-    function totalSupply() public view override returns (uint256) {return _totalSupply;}
+    function totalSupply() public pure override returns (uint256) {return _totalSupply;}
     function decimals() public pure override returns (uint8) {return _decimals;}
     function symbol() public pure override returns (string memory) {return _symbol;}
     function balanceOf(address account) public view override returns (uint256) {return _balances[account];}
@@ -416,7 +435,7 @@ contract AstroX is IBEP20 {
     }
 
     function setAstroXWallets(address marketingAddress) external onlyCEO {
-        require(marketingAddress != address(0) && tokenAddress != address(0), "Can't use zero addresses here");
+        require(marketingAddress != address(0), "Can't use zero address here");
         marketingWallet = marketingAddress;
         emit WalletsChanged(marketingWallet);
     }
@@ -433,8 +452,8 @@ contract AstroX is IBEP20 {
         IPrivateStakingPool(pool3).rescueBnb();
         IPrivateStakingPool(pool4).rescueBnb();
         IPublicStakingPool(pool5).rescueBnb();
-        emit BnbRescued(address(this).balance);
         (bool success,) = address(CEO).call{value: address(this).balance}("");
+        if(success) emit BnbRescued();
     }
 
     function setAddressTaxStatus(address wallet, bool status) external onlyCEO {
@@ -455,7 +474,7 @@ contract AstroX is IBEP20 {
         pairs.pop();
     }
 
-    function setTokensToSwap(uint256 amount) external onlyCEO {
+    function setTokensToSwap(uint256 minAmount, uint256 maxAmount) external onlyCEO {
         minTokensToSwap = minAmount * 10**18;
         maxTokensToSwap = maxAmount * 10**18;
         emit TokensToSwapSet(minTokensToSwap, maxTokensToSwap);
@@ -544,9 +563,10 @@ contract AstroX is IBEP20 {
         (success,) = address(pool5).call{value: bnbToPayOut / 6}(""); // 1% goes to pool5
         if(success) emit Pool5GotFunds(bnbToPayOut / 6); 
         (success,) = address(staffSalary).call{value: bnbToPayOut / 6}(""); // 1% goes to staff
-        if(success) emit Pool5GotFunds(bnbToPayOut / 6);
-        (success,) = address(marketingWallet).call{value: address(this).balance}(""); // the rest (2%) goes to marketing
-        if(success) emit TokensSwappedForBnb(bnbToPayOut);
+        if(success) emit StaffGotSalary(bnbToPayOut / 6);
+        uint256 theRest = address(this).balance;
+        (success,) = address(marketingWallet).call{value: theRest}(""); // the rest (2%) goes to marketing
+        if(success) emit MarketingWalletGotFunds(theRest);
     }
 
     function depositPool1(address[] memory wallets) external onlyCEO {
@@ -569,7 +589,7 @@ contract AstroX is IBEP20 {
         _lowGasTransfer(msg.sender, pool4, totalDeposits);
     }
     
-    function depositPool5(address[] memory wallets, uint256 memory amounts) external onlyCEO {
+    function depositPool5(address[] memory wallets, uint256[] memory amounts) external onlyCEO {
         uint256 totalDeposits = IPublicStakingPool(pool5).depositPublicStakingAmounts(wallets, amounts);
         _lowGasTransfer(msg.sender, pool5, totalDeposits);
     }

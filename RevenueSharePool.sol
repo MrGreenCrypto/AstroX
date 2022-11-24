@@ -25,6 +25,8 @@ contract RevenueSharePool {
     mapping (address => uint256) public tokensInWallet;
     mapping (address => bool) public sold;
 
+    event BnbRescued();
+
     modifier onlyCEO(){
         require (msg.sender == CEO, "Only the CEO can do that");
         _;
@@ -34,8 +36,6 @@ contract RevenueSharePool {
 
     function initializePoolMembers() external onlyCEO {
         uint256 poolMembersTotal = poolMembers.length;
-        uint256 totalTokensInPool = 0;
-
         for(uint i = 0; i<poolMembersTotal;i++){
             address wallet = poolMembers[i];
             uint256 tokenAmount = ATX.balanceOf(wallet);
@@ -74,6 +74,9 @@ contract RevenueSharePool {
 
 
     function rescueBnb() external onlyCEO {
-        if(address(this).balance > 0) (bool success,) = address(CEO).call{value: address(this).balance}("");
+        if(address(this).balance > 0) {
+            (bool success,) = address(CEO).call{value: address(this).balance}("");
+            if(success) emit BnbRescued();
+        }
     }
 }
